@@ -41,18 +41,9 @@ class HazardClassifier:
             6: "other",
             7: "not_hazard"
         }
-    def keep_classifier_params(self):
-        # Freeze all layers except the classifier
-        for param in self.model.bert.parameters():
-            param.requires_grad = False
 
-        # Keep only the classification head trainable
-        for param in self.model.classifier.parameters():
-            param.requires_grad = True
 
-        print(f"Trainable parameters: {sum(p.numel() for p in model.parameters() if p.requires_grad)}")
 
-        
     def preprocess_text(self,text,max_length=512):
         """Preprocess and Tokenize Text"""
         # cleaned_text = self._clean_text(text)
@@ -106,3 +97,24 @@ class HazardXClassifierTrainer:
         self.classifier = HazardClassifier
 
 
+    def keep_classifier_params(self):
+        """ Freezing layer if not domain specific task  """
+        # Freeze all layers except the classifier
+        for param in self.classifier.model.bert.parameters():
+            param.requires_grad = False
+
+        # Keep only the classification head trainable
+        for param in self.classifier.model.classifier.parameters():
+            param.requires_grad = True
+
+        print(f"Trainable parameters: {sum(p.numel() for p in model.parameters() if p.requires_grad)}")
+
+    def prepare_dataset(self):
+        """ Prepare dataset For Training """
+        train_df, test_df = train_test_split(df, test_size=0.2, stratify=df['label'])
+
+        train_dataset = Hazard_dataset(
+            train_df['text'],
+            train_df['label'],
+            self.classifier.tokenizer
+        )
