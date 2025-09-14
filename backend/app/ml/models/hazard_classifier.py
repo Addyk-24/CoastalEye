@@ -4,6 +4,10 @@ from transformers import AutoModelForSequenceClassification, AutoTokenizer
 from transformers import Trainer, TrainingArguments
 from sklearn.metrics import accuracy_score,f1_score
 
+import numpy as np
+import pandas as pd
+from sklearn.model_selection import train_test_split
+
 import re
 import nltk
 nltk.download('stopwords')
@@ -37,6 +41,18 @@ class HazardClassifier:
             6: "other",
             7: "not_hazard"
         }
+    def keep_classifier_params(self):
+        # Freeze all layers except the classifier
+        for param in self.model.bert.parameters():
+            param.requires_grad = False
+
+        # Keep only the classification head trainable
+        for param in self.model.classifier.parameters():
+            param.requires_grad = True
+
+        print(f"Trainable parameters: {sum(p.numel() for p in model.parameters() if p.requires_grad)}")
+
+        
     def preprocess_text(self,text,max_length=512):
         """Preprocess and Tokenize Text"""
         # cleaned_text = self._clean_text(text)
@@ -71,8 +87,22 @@ class HazardClassifier:
         with torch.no_grad():
             outputs = self.model(**tokenzied_text)
             prediction = torch.nn.functional.softmax(outputs.logits, dim=-1)
-            
+
+        prediction_class = torch.argmax(prediction,dim=-1).item()
+        confidence = prediction[0][prediction_class].item() 
+
+        return{
+            "hazard_type": self.label_mapping[prediction_class],
+            "confidence" : float(confidence),
+            "all_probabilities": {
+                self.label_mapping[i]: float(prob) for i,prob in enumerate(prediction[0])
+            }
+        }
+
 
     
+class HazardXClassifierTrainer:
+    def __init__(self):
+        self.classifier = HazardClassifier
 
 
