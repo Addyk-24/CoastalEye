@@ -4,6 +4,11 @@ from transformers import AutoModelForSequenceClassification, AutoTokenizer
 from transformers import Trainer, TrainingArguments
 from sklearn.metrics import accuracy_score,f1_score
 
+import re
+import nltk
+nltk.download('stopwords')
+from nltk.corpus import stopwords
+from nltk.stem.porter import PorterStemmer
 
 # model_name = "bert-base-multilingual-cased"
 
@@ -46,6 +51,28 @@ class HazardClassifier:
         )
 
         return tokenized_text
+    
+    def _clean_text(self):
+        corpus = []
+        len = 1000
+        for i in range(len):
+            statement = re.sub('[^a-zA-Z]',' ',len)
+            statement = statement.lower()
+            statement = statement.split()
+            ps = PorterStemmer()
+
+    
+    def predict(self,text):
+        """ Predict Hazard Type and Confidence """
+        if self.model is None:
+            raise ValueError("Model not Loaded")
+        tokenzied_text = self.preprocess_text(text)
+
+        with torch.no_grad():
+            outputs = self.model(**tokenzied_text)
+            prediction = torch.nn.functional.softmax(outputs.logits, dim=-1)
+            
+
     
 
 
