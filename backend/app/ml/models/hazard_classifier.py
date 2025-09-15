@@ -3,6 +3,7 @@ import torch
 from transformers import AutoModelForSequenceClassification, AutoTokenizer
 from transformers import Trainer, TrainingArguments
 from sklearn.metrics import accuracy_score,f1_score
+from torch.utils.data import Dataset
 
 
 
@@ -34,6 +35,30 @@ df = pd.read_csv("../datasets/synthetic_hazard_dataset_1200.csv")
 model_path = "FacebookAI/xlm-roberta-base"
 # model_path = "ai4bharat/indic-bert"
 
+class HazardDataset(Dataset):
+    def __init__(self,texts,labels,tokenizer,max_length=128):
+        self.texts = texts
+        self.labels = labels
+        self.tokenizer = tokenizer
+        self.maz_length = max_length
+    
+    def __len__(self):
+        return len(self.texts)
+
+    def __getitem__(self, idx):
+        text = self.texts[idx]
+        label = self.labels[idx]
+        encoding = self.tokenizer(
+            text,
+            truncation=True,
+            padding='max_length',
+            max_length=self.max_length,
+            return_tensors='pt'
+        )
+        item = {key: val.squeeze(0) for key, val in encoding.items()}
+        item['labels'] = torch.tensor(label, dtype=torch.long)
+        return item
+
 
 class HazardClassifier:
     def __init__(self):
@@ -55,29 +80,29 @@ class HazardClassifier:
         self.model = AutoModelForSequenceClassification(model_path)
         self.model.eval()
 
-    def preprocess_text(self,text,max_length=512):
-        """Preprocess and Tokenize Text"""
-        # cleaned_text = self._clean_text(text)
+    # def preprocess_text(self,text,max_length=512):
+    #     """Preprocess and Tokenize Text"""
+    #     # cleaned_text = self._clean_text(text)
 
-        # Tokenize 
-        tokenized_text = self.tokenizer(
-            cleaned_text,
-            truncation = True,
-            padding = True,
-            max_length = max_length,
-            return_tensors = "pt"
-        )
+    #     # Tokenize 
+    #     tokenized_text = self.tokenizer(
+    #         text,
+    #         truncation = True,
+    #         padding = True,
+    #         max_length = max_length,
+    #         return_tensors = "pt"
+    #     )
 
-        return tokenized_text
+    #     return tokenized_text
     
-    def _clean_text(self):
-        corpus = []
-        len = 1000
-        for i in range(len):
-            statement = re.sub('[^a-zA-Z]',' ',len)
-            statement = statement.lower()
-            statement = statement.split()
-            ps = PorterStemmer()
+    # def _clean_text(self):
+    #     corpus = []
+    #     len = 1000
+    #     for i in range(len):
+    #         statement = re.sub('[^a-zA-Z]',' ',len)
+    #         statement = statement.lower()
+    #         statement = statement.split()
+    #         ps = PorterStemmer()
 
     
     def predict(self,text):
@@ -112,13 +137,13 @@ class HazardXClassifierTrainer:
         """ Prepare dataset For Training """
         train_df, test_df = train_test_split(df, test_size=0.2, stratify=df['label'])
 
-        train_dataset = pd.DataFrame(
-            train_df['text'].tolist(),
+        train_dataset = HazardDataset(
+            train_df['text_description'].tolist(),
             train_df['label'].tolist(),
             self.classifier.tokenizer
         )
-        test_dataset = pd.DataFrame(
-            test_df['text'],
+        test_dataset = HazardDataset(
+            test_df['text_description'],
             test_df['label'],
             self.classifier.tokenizer
         )
@@ -164,3 +189,6 @@ class HazardXClassifierTrainer:
 
     
 
+
+
+# text = {}
