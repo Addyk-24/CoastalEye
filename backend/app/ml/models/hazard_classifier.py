@@ -114,7 +114,16 @@ class HazardXClassifierTrainer:
         train_df, test_df = train_test_split(df, test_size=0.2, stratify=df['label'])
 
         train_dataset = Hazard_dataset(
-            train_df['text'],
-            train_df['label'],
+            train_df['text'].tolist(),
+            train_df['label'].tolist(),
             self.classifier.tokenizer
         )
+        test_dataset = Hazard_dataset(
+            test_df['text'],
+            test_df['label'],
+            self.classifier.tokenizer
+        )
+
+        return train_dataset,test_dataset
+    
+    
