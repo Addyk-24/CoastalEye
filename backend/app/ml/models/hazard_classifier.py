@@ -16,6 +16,7 @@ from nltk.stem.porter import PorterStemmer
 
 # model_name = "bert-base-multilingual-cased"
 
+
 # # Option 2: IndicBERT (better for Indian languages)
 # model_name = "ai4bharat/indic-bert"
 
@@ -23,14 +24,14 @@ from nltk.stem.porter import PorterStemmer
 # model_name = "xlm-roberta-base"
 
 model_path = "FacebookAI/xlm-roberta-base"
+# model_path = "ai4bharat/indic-bert"
 
-model = AutoModelForSequenceClassification.from_pretrained(model_path)
-tokenizer = AutoTokenizer.from_pretrained(model_path)
 
 class HazardClassifier:
     def __init__(self):
-        self.model = model
-        self.tokenizer = tokenizer
+        self.model_path = model_path
+        self.tokenizer = AutoTokenizer.from_pretrained(model_path)
+        self.model = None
         self.label_mapping = {
             0: "tsunami",
             1: "storm_surge",
@@ -42,7 +43,9 @@ class HazardClassifier:
             7: "not_hazard"
         }
 
-
+    def load_model(self):
+        self.model = AutoModelForSequenceClassification(model_path)
+        self.model.eval()
 
     def preprocess_text(self,text,max_length=512):
         """Preprocess and Tokenize Text"""
@@ -107,7 +110,7 @@ class HazardXClassifierTrainer:
         for param in self.classifier.model.classifier.parameters():
             param.requires_grad = True
 
-        print(f"Trainable parameters: {sum(p.numel() for p in model.parameters() if p.requires_grad)}")
+        print(f"Trainable parameters: {sum(p.numel() for p in self.classifier.model.parameters() if p.requires_grad)}")
 
     def prepare_dataset(self):
         """ Prepare dataset For Training """
@@ -126,4 +129,12 @@ class HazardXClassifierTrainer:
 
         return train_dataset,test_dataset
     
+    def train_model(self,train_dataset,test_dataset):
+        """ Fine Tuning the Model """
+        model = AutoModelForSequenceClassification(
+            self.classifier.model
+            
+            )
+
     
+
