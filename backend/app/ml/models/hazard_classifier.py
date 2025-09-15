@@ -4,9 +4,12 @@ from transformers import AutoModelForSequenceClassification, AutoTokenizer
 from transformers import Trainer, TrainingArguments
 from sklearn.metrics import accuracy_score,f1_score
 
+
+
 import numpy as np
 import pandas as pd
 from sklearn.model_selection import train_test_split
+
 
 import re
 import nltk
@@ -14,6 +17,11 @@ nltk.download('stopwords')
 from nltk.corpus import stopwords
 from nltk.stem.porter import PorterStemmer
 
+
+# df = pd.read_csv("../datasets/synthetic_hazard_dataset_1200.csv")
+# ...existing code...
+df = pd.read_csv("../datasets/synthetic_hazard_dataset_1200.csv")
+# print(df.head())
 # model_name = "bert-base-multilingual-cased"
 
 
@@ -100,28 +108,16 @@ class HazardXClassifierTrainer:
         self.classifier = HazardClassifier
 
 
-    def keep_classifier_params(self):
-        """ Freezing layer if not domain specific task  """
-        # Freeze all layers except the classifier
-        for param in self.classifier.model.bert.parameters():
-            param.requires_grad = False
-
-        # Keep only the classification head trainable
-        for param in self.classifier.model.classifier.parameters():
-            param.requires_grad = True
-
-        print(f"Trainable parameters: {sum(p.numel() for p in self.classifier.model.parameters() if p.requires_grad)}")
-
     def prepare_dataset(self):
         """ Prepare dataset For Training """
         train_df, test_df = train_test_split(df, test_size=0.2, stratify=df['label'])
 
-        train_dataset = Hazard_dataset(
+        train_dataset = pd.DataFrame(
             train_df['text'].tolist(),
             train_df['label'].tolist(),
             self.classifier.tokenizer
         )
-        test_dataset = Hazard_dataset(
+        test_dataset = pd.DataFrame(
             test_df['text'],
             test_df['label'],
             self.classifier.tokenizer
@@ -129,12 +125,42 @@ class HazardXClassifierTrainer:
 
         return train_dataset,test_dataset
     
-    def train_model(self,train_dataset,test_dataset):
+    def train_model(self,train_dataset,test_dataset,output_dir="../trained_models/hazard_model"):
         """ Fine Tuning the Model """
         model = AutoModelForSequenceClassification(
-            self.classifier.model
-            
+            self.classifier.model,
+            num_labels = len(self.classifier.label_mapping)
             )
+        # Training Arguments
+        training_args = TrainingArguments(
+            output_dir=output_dir,
+            num_train_epochs=3,
+            per_device_train_batch_size=16,
+            per_device_eval_batch_size=16,
+            warmup_steps=500,
+            # logging_dir='./logs',
+            weight_decay=0.01,
+            evaluation_strategy="epoch",
+            save_strategy="epoch",
+            load_best_model_at_end=True,
+            metric_for_best_model="f1",
+        )
+        # Initialize Trainer
+        trainer = Trainer(
+            model=model,
+            args=training_args,
+            train_dataset=train_dataset,
+            eval_dataset=test_dataset,
+            # compute_metrics=self.compute_metrics,
+        )
+
+        # Training
+        trainer.train()
+
+        # Save model
+        trainer.save_model(output_dir)
+
+        return trainer
 
     
 
