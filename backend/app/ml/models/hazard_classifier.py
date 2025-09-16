@@ -33,6 +33,7 @@ df = pd.read_csv("../datasets/synthetic_hazard_dataset_1200.csv")
 # model_name = "xlm-roberta-base"
 
 model_path = "FacebookAI/xlm-roberta-base"
+fine_tuned_model_path = "Addyk24/Hazard_Classifier"
 # model_path = "ai4bharat/indic-bert"
 
 class HazardDataset(Dataset):
@@ -81,7 +82,7 @@ class HazardClassifier:
         # Create reverse mapping (integer to string) for predictions
         self.id2label = {v: k for k, v in self.label_mapping.items()}
 
-    def load_model(self, model_path=None):
+    def load_model(self, model_path=fine_tuned_model_path):
         """Load a trained model"""
         path_to_use = model_path if model_path else self.model_path
         self.model = AutoModelForSequenceClassification.from_pretrained(path_to_use)
@@ -126,15 +127,14 @@ class HazardClassifier:
         confidence = prediction[0][prediction_class].item() 
 
         return{
-            "hazard_type": self.label_mapping[prediction_class],
+            "hazard_type":  self.id2label[prediction_class],
             "confidence" : float(confidence),
             "all_probabilities": {
-                self.label_mapping[i]: float(prob) for i,prob in enumerate(prediction[0])
+                self.id2label[i]: float(prob) for i, prob in enumerate(prediction[0])
+
             }
         }
 
-
-    
 class HazardClassifierTrainer:
     def __init__(self):
         self.classifier = HazardClassifier()
@@ -158,22 +158,17 @@ class HazardClassifierTrainer:
         df_clean = df.copy()
         df_clean['label'] = df_clean['label'].str.strip().str.lower()
         
-        print(f"\n🧹 After cleaning:")
+        print(f"\nAfter cleaning:")
         cleaned_unique_labels = df_clean['label'].unique()
         print(f"Cleaned labels: {cleaned_unique_labels}")
         
-        # Check which labels are in our mapping
         missing_labels = set(cleaned_unique_labels) - set(self.classifier.label_mapping.keys())
         if missing_labels:
             print(f"⚠️ WARNING: These labels are not in label_mapping: {missing_labels}")
             print("Available mappings:", list(self.classifier.label_mapping.keys()))
             
-            # Option 1: Add missing labels to mapping
-            # Option 2: Filter out missing labels
-            # Option 3: Map to 'other' category
-            
-            # For now, let's map unknown labels to 'other'
-            print("🔄 Mapping unknown labels to 'other'")
+
+            print("Mapping unknown labels to 'other'")
             df_clean.loc[~df_clean['label'].isin(self.classifier.label_mapping.keys()), 'label'] = 'other'
         
         # Convert string labels to integers
