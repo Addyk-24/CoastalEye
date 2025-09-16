@@ -282,13 +282,19 @@ class HazardClassifierTrainer:
 
     
 
-def test_trained_model(model_dir="trained_models/hazard_model"):
+def test_trained_model(model_dir="../trained_models/hazard_model"):
     """Test the trained model with sample predictions"""
     
     print("🔄 Loading trained model...")
     classifier = HazardClassifier()
-    classifier.tokenizer = AutoTokenizer.from_pretrained(model_dir)
     classifier.load_model(model_dir)
+
+    # Try loading tokenizer from fine-tuned folder, fallback to base model
+    try:
+        classifier.tokenizer = AutoTokenizer.from_pretrained(model_dir)
+    except Exception:
+        print("⚠️ Tokenizer not found in fine-tuned folder. Using base model tokenizer.")
+        classifier.tokenizer = AutoTokenizer.from_pretrained("xlm-roberta-base")
     
     # Test samples
     test_samples = [
