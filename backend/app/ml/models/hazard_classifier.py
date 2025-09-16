@@ -103,14 +103,6 @@ class HazardClassifier:
 
         return tokenized_text
     
-    # def _clean_text(self):
-    #     corpus = []
-    #     len = 1000
-    #     for i in range(len):
-    #         statement = re.sub('[^a-zA-Z]',' ',len)
-    #         statement = statement.lower()
-    #         statement = statement.split()
-    #         ps = PorterStemmer()
 
     
     def predict(self,text):
