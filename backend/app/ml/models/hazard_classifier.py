@@ -40,7 +40,7 @@ class HazardDataset(Dataset):
         self.texts = texts
         self.labels = labels
         self.tokenizer = tokenizer
-        self.maz_length = max_length
+        self.max_length = max_length
     
     def __len__(self):
         return len(self.texts)
@@ -56,7 +56,7 @@ class HazardDataset(Dataset):
             return_tensors='pt'
         )
         item = {key: val.squeeze(0) for key, val in encoding.items()}
-        item['labels'] = torch.tensor(label, dtype=torch.long)
+        item['labels'] = torch.tensor(int(label), dtype=torch.long)
         return item
 
 
@@ -66,34 +66,41 @@ class HazardClassifier:
         self.tokenizer = AutoTokenizer.from_pretrained(model_path)
         self.model = None
         self.label_mapping = {
-            0: "tsunami",
-            1: "storm_surge",
-            2: "high_waves",
-            3: "coastal_flooding",
-            4: "swell_surge",
-            5: "rip_current",
-            6: "other",
-            7: "not_hazard"
+            "tsunami": 0,
+            "storm_surge": 1,
+            "high_waves": 2,
+            "coastal_flooding": 3,
+            "swell_surge": 4,
+            "rip_current": 5,
+            "other": 6,
+            "no_hazard": 7,
+            "flood": 8,
+            "abnormal_tide": 9,
         }
+        
+        # Create reverse mapping (integer to string) for predictions
+        self.id2label = {v: k for k, v in self.label_mapping.items()}
 
-    def load_model(self):
-        self.model = AutoModelForSequenceClassification(model_path)
+    def load_model(self, model_path=None):
+        """Load a trained model"""
+        path_to_use = model_path if model_path else self.model_path
+        self.model = AutoModelForSequenceClassification.from_pretrained(path_to_use)
         self.model.eval()
 
-    # def preprocess_text(self,text,max_length=512):
-    #     """Preprocess and Tokenize Text"""
-    #     # cleaned_text = self._clean_text(text)
+    def preprocess_text(self,text,max_length=512):
+        """Preprocess and Tokenize Text"""
+        # cleaned_text = self._clean_text(text)
 
-    #     # Tokenize 
-    #     tokenized_text = self.tokenizer(
-    #         text,
-    #         truncation = True,
-    #         padding = True,
-    #         max_length = max_length,
-    #         return_tensors = "pt"
-    #     )
+        # Tokenize 
+        tokenized_text = self.tokenizer(
+            text,
+            truncation = True,
+            padding = True,
+            max_length = max_length,
+            return_tensors = "pt"
+        )
 
-    #     return tokenized_text
+        return tokenized_text
     
     # def _clean_text(self):
     #     corpus = []
@@ -128,33 +135,116 @@ class HazardClassifier:
 
 
     
-class HazardXClassifierTrainer:
+class HazardClassifierTrainer:
     def __init__(self):
-        self.classifier = HazardClassifier
+        self.classifier = HazardClassifier()
+
 
 
     def prepare_dataset(self):
-        """ Prepare dataset For Training """
-        train_df, test_df = train_test_split(df, test_size=0.2, stratify=df['label'])
-
+        """Prepare dataset for training with proper label conversion"""
+        
+        print("📊 Dataset Info:")
+        print(f"Dataset shape: {df.shape}")
+        print(f"Columns: {df.columns.tolist()}")
+        print(f"First few rows:\n{df.head()}")
+        
+        # Check unique labels in your dataset
+        print(f"\n🏷️ Unique labels in dataset:")
+        unique_labels = df['label'].unique()
+        print(f"Found labels: {unique_labels}")
+        
+        # Clean and normalize labels
+        df_clean = df.copy()
+        df_clean['label'] = df_clean['label'].str.strip().str.lower()
+        
+        print(f"\n🧹 After cleaning:")
+        cleaned_unique_labels = df_clean['label'].unique()
+        print(f"Cleaned labels: {cleaned_unique_labels}")
+        
+        # Check which labels are in our mapping
+        missing_labels = set(cleaned_unique_labels) - set(self.classifier.label_mapping.keys())
+        if missing_labels:
+            print(f"⚠️ WARNING: These labels are not in label_mapping: {missing_labels}")
+            print("Available mappings:", list(self.classifier.label_mapping.keys()))
+            
+            # Option 1: Add missing labels to mapping
+            # Option 2: Filter out missing labels
+            # Option 3: Map to 'other' category
+            
+            # For now, let's map unknown labels to 'other'
+            print("🔄 Mapping unknown labels to 'other'")
+            df_clean.loc[~df_clean['label'].isin(self.classifier.label_mapping.keys()), 'label'] = 'other'
+        
+        # Convert string labels to integers
+        df_clean['label_id'] = df_clean['label'].map(self.classifier.label_mapping)
+        
+        # Check for any unmapped labels
+        unmapped_mask = df_clean['label_id'].isna()
+        if unmapped_mask.any():
+            print(f"❌ ERROR: {unmapped_mask.sum()} labels could not be mapped!")
+            print("Problematic labels:", df_clean[unmapped_mask]['label'].unique())
+            # Remove unmapped rows
+            df_clean = df_clean.dropna(subset=['label_id'])
+            print(f"✅ Removed unmapped rows. New dataset size: {len(df_clean)}")
+        
+        # Convert label_id to int
+        df_clean['label_id'] = df_clean['label_id'].astype(int)
+        
+        print(f"\n📋 Label distribution:")
+        label_counts = df_clean['label'].value_counts()
+        print(label_counts)
+        
+        # Split the data
+        train_df, test_df = train_test_split(
+            df_clean, 
+            test_size=0.2, 
+            stratify=df_clean['label_id'],
+            random_state=42
+        )
+        
+        print(f"\n📊 Data split:")
+        print(f"Training samples: {len(train_df)}")
+        print(f"Test samples: {len(test_df)}")
+        
+        # Create datasets
         train_dataset = HazardDataset(
             train_df['text_description'].tolist(),
-            train_df['label'].tolist(),
+            train_df['label_id'].tolist(),
             self.classifier.tokenizer
         )
+        
         test_dataset = HazardDataset(
-            test_df['text_description'],
-            test_df['label'],
+            test_df['text_description'].tolist(),
+            test_df['label_id'].tolist(),
             self.classifier.tokenizer
         )
-
-        return train_dataset,test_dataset
+        
+        return train_dataset, test_dataset
     
+    def compute_metrics(self, eval_pred):
+
+        """Compute metrics for evaluation"""
+        predictions, labels = eval_pred
+        predictions = np.argmax(predictions, axis=1)
+        
+        accuracy = accuracy_score(labels, predictions)
+        f1 = f1_score(labels, predictions, average='weighted')
+        
+        # Return with proper eval_ prefix
+        return {
+            'eval_accuracy': accuracy,  # Add eval_ prefix
+            'eval_f1': f1              # Add eval_ prefix
+        }
+
     def train_model(self,train_dataset,test_dataset,output_dir="../trained_models/hazard_model"):
         """ Fine Tuning the Model """
-        model = AutoModelForSequenceClassification(
-            self.classifier.model,
-            num_labels = len(self.classifier.label_mapping)
+        model = AutoModelForSequenceClassification.from_pretrained(
+            self.classifier.model_path,
+            num_labels = len(self.classifier.label_mapping),
+            id2label=self.classifier.id2label,
+            label2id=self.classifier.label_mapping
+
             )
         # Training Arguments
         training_args = TrainingArguments(
@@ -165,10 +255,13 @@ class HazardXClassifierTrainer:
             warmup_steps=500,
             # logging_dir='./logs',
             weight_decay=0.01,
-            evaluation_strategy="epoch",
+            eval_strategy="epoch",
             save_strategy="epoch",
             load_best_model_at_end=True,
-            metric_for_best_model="f1",
+            metric_for_best_model="eval_loss",
+            # metric_for_best_model="eval_f1",
+            greater_is_better=False,  # Important: for loss, lower is better
+
         )
         # Initialize Trainer
         trainer = Trainer(
@@ -176,7 +269,7 @@ class HazardXClassifierTrainer:
             args=training_args,
             train_dataset=train_dataset,
             eval_dataset=test_dataset,
-            # compute_metrics=self.compute_metrics,
+            # compute_metrics=self.compute_metrics(test_dataset),
         )
 
         # Training
@@ -189,6 +282,62 @@ class HazardXClassifierTrainer:
 
     
 
+def test_trained_model(model_dir="trained_models/hazard_model"):
+    """Test the trained model with sample predictions"""
+    
+    print("🔄 Loading trained model...")
+    classifier = HazardClassifier()
+    classifier.tokenizer = AutoTokenizer.from_pretrained(model_dir)
+    classifier.load_model(model_dir)
+    
+    # Test samples
+    test_samples = [
+        "There is a warning for high waves along the coast.",
+        "Tsunami alert! Water receding from beach rapidly!",
+        "Heavy flooding in coastal areas due to storm surge",
+        "Rip current warning issued for swimmers",
+        "Normal weather conditions, no hazards reported",
+        "मुंबई में तेज लहरें और तूफान की चेतावनी",  # Hindi text
+        "Large waves hitting the shore, people evacuating"
+    ]
+    
+    print("\n🧪 Testing predictions:")
+    print("=" * 80)
+    
+    for i, text in enumerate(test_samples, 1):
+        try:
+            result = classifier.predict(text)
+            print(f"\n{i}. Text: {text}")
+            print(f"   Predicted: {result['hazard_type']} (confidence: {result['confidence']:.3f})")
+            
+            # Show top 3 predictions
+            sorted_probs = sorted(result['all_probabilities'].items(), 
+                                key=lambda x: x[1], reverse=True)
+            print(f"   Top 3: {sorted_probs[:3]}")
+            
+        except Exception as e:
+            print(f"❌ Error predicting for text {i}: {e}")
+    
+    print("\n✅ Testing complete!")
 
+if __name__ == "__main__":
+    
+    print("🏗️ Initializing Hazard Classifier Trainer...")
+    
+    try:
+        # Train the model
+        # trainer = HazardClassifierTrainer()
+        # train_dataset, test_dataset = trainer.prepare_dataset()
+        # trained_model = trainer.train_model(train_dataset, test_dataset)
+        
+        # print("\n✅ Training completed successfully!")
+        
+        # Test the trained model
+        test_trained_model()
+        
+    except Exception as e:
+        print(f"❌ Error during training: {e}")
+        import traceback
+        traceback.print_exc()
 
-# text = {}
+# Prediction: {'hazard_type': 'tsunami', 'confidence': 0.5275659561157227, 'all_probabilities': {'tsunami': 0.5275659561157227, 'storm_surge': 0.4724341034889221}}       
