@@ -3,6 +3,8 @@ __pycache__/
 *.py[codz]
 *$py.class
 
+trained_models
+save_model.py
 structure.md
 # C extensions
 *.so
@@ -206,3 +208,4 @@ cython_debug/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
+

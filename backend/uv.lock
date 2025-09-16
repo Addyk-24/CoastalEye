@@ -7,6 +7,7 @@ name = "backend"
 version = "0.1.0"
 source = { virtual = "." }
 dependencies = [
+    { name = "huggingface-hub" },
     { name = "pandas" },
     { name = "scikit-learn" },
     { name = "transformers" },
@@ -14,6 +15,7 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
+    { name = "huggingface-hub", specifier = ">=0.34.4" },
     { name = "pandas", specifier = ">=2.3.2" },
     { name = "scikit-learn", specifier = ">=1.7.2" },
     { name = "transformers", specifier = ">=4.56.1" },
