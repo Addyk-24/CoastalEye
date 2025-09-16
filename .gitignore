@@ -4,6 +4,7 @@ __pycache__/
 *$py.class
 
 trained_models
+backend/app/ml/trained_models/hazard_model/
 save_model.py
 structure.md
 # C extensions
