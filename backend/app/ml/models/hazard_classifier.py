@@ -4,6 +4,7 @@ from transformers import AutoModelForSequenceClassification, AutoTokenizer
 from transformers import Trainer, TrainingArguments
 from sklearn.metrics import accuracy_score,f1_score
 from torch.utils.data import Dataset
+from typing import Dict , Optional
 
 
 
@@ -126,6 +127,8 @@ class HazardClassifier:
 
             }
         }
+    
+
 
 class HazardClassifierTrainer:
     def __init__(self):
@@ -267,9 +270,36 @@ class HazardClassifierTrainer:
 
         return trainer
 
-    
 
-def test_trained_model(model_dir="../trained_models/hazard_model"):
+def model_prediction(data,model_dir="../trained_models/hazard_model"):
+    """Test the trained model with sample predictions"""
+    
+    print("🔄 Loading trained model...")
+    classifier = HazardClassifier()
+    classifier.load_model(model_dir)
+
+    # Try loading tokenizer from fine-tuned folder, fallback to base model
+    try:
+        classifier.tokenizer = AutoTokenizer.from_pretrained(model_dir)
+    except Exception:
+        print("⚠️ Tokenizer not found in fine-tuned folder. Using base model tokenizer.")
+        classifier.tokenizer = AutoTokenizer.from_pretrained("xlm-roberta-base")
+    
+    
+    print("\n🧪 Testing predictions:")
+    print("=" * 80)
+
+    try:
+        result = classifier.predict(data)
+        print(f"   Predicted: {result['hazard_type']} (confidence: {result['confidence']:.3f})")
+        return {f"   Predicted: {result['hazard_type']} (confidence: {result['confidence']:.3f})"}
+    except Exception as e:
+        print(f"❌ Error predicting for text: {data}")
+
+    
+    print("\n✅ Testing complete!")  
+
+def test_train_model(text,model_dir="../trained_models/hazard_model"):
     """Test the trained model with sample predictions"""
     
     print("🔄 Loading trained model...")
@@ -284,20 +314,20 @@ def test_trained_model(model_dir="../trained_models/hazard_model"):
         classifier.tokenizer = AutoTokenizer.from_pretrained("xlm-roberta-base")
     
     # Test samples
-    test_samples = [
-        "There is a warning for high waves along the coast.",
-        "Tsunami alert! Water receding from beach rapidly!",
-        "Heavy flooding in coastal areas due to storm surge",
-        "Rip current warning issued for swimmers",
-        "Normal weather conditions, no hazards reported",
-        "मुंबई में तेज लहरें और तूफान की चेतावनी",  # Hindi text
-        "Large waves hitting the shore, people evacuating"
-    ]
+    # test_samples = [
+    #     "There is a warning for high waves along the coast.",
+    #     "Tsunami alert! Water receding from beach rapidly!",
+    #     "Heavy flooding in coastal areas due to storm surge",
+    #     "Rip current warning issued for swimmers",
+    #     "Normal weather conditions, no hazards reported",
+    #     "मुंबई में तेज लहरें और तूफान की चेतावनी",  # Hindi text
+    #     "Large waves hitting the shore, people evacuating"
+    # ]
     
     print("\n🧪 Testing predictions:")
     print("=" * 80)
     
-    for i, text in enumerate(test_samples, 1):
+    for i, text in enumerate(text, 1):
         try:
             result = classifier.predict(text)
             print(f"\n{i}. Text: {text}")
@@ -326,7 +356,7 @@ if __name__ == "__main__":
         # print("\n✅ Training completed successfully!")
         
         # Test the trained model
-        test_trained_model()
+        model_prediction()
         
     except Exception as e:
         print(f"❌ Error during training: {e}")

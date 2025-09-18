@@ -3,6 +3,7 @@ __pycache__/
 *.py[codz]
 *$py.class
 
+.env
 trained_models
 backend/app/ml/trained_models/hazard_model/
 save_model.py

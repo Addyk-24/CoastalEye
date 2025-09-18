@@ -3,6 +3,7 @@ load_dotenv()
 import sys
 import os
 
+from pydantic import BaseModel
 from typing import Dict, List, Any, Optional, Tuple
 from datetime import datetime, date
 import json
@@ -13,6 +14,12 @@ import uuid
 SUPABASE_DB_PASSWORD = os.environ.get("SUPABASE_DB_PASSWORD")
 SUPABASE_KEY = os.environ.get("SUPABASE_KEY")
 SUPABASE_URL = os.environ.get("SUPABASE_URL") 
+
+
+class ModelPrediction(BaseModel):
+    predicted_hazard_type : str
+    hazard_confidence: float
+
 
 class Database_Manager:
     """ Enhanced Database Manager For Report Storing """
@@ -84,12 +91,31 @@ class Database_Manager:
             result = self.supabase.table("user_reports").insert(profile_report).execute()
 
             if not result.data:
-                print("❌ Failed to insert Investor profile")
+                print("❌ Failed to insert User Report profile")
                 return None
-            report_id = result.data[0]['investor_id']
-            print(f"✅ Investor profile saved with ID: {report_id}")
+            report_id = result.data[0]['report_id']
+            print(f"✅ User Report profile saved with ID: {report_id}")
 
             return report_id
+        
         except Exception as e:
-            print(f"❌ Error saving Investor profile: {str(e)}")
+            print(f"❌ Error saving Model Prediction profile: {str(e)}")
             return None
+    def save_model_prediction(self,data:ModelPrediction,report_id:str):
+            """ Save the Predicted Hazard Type and Confidence in Database """
+            try:
+                profile_report = {
+                    'predicted_hazard_type': data.get('predicted_hazard_type'),
+                    'hazard_confidence': data.get('hazard_confidence'),
+                }
+
+                result = self.supabase.table('user_reports').update({"predicted_hazard_type":profile_report["predicted_hazard_type"],"hazard_confidence":profile_report["hazard_confidence"]}).eq("report_id",report_id).execute()
+
+                if not result.data:
+                    print("❌ Failed to insert Model Prediction profile")
+                    return None
+                print(f"✅ Model Prediction profile saved ")
+                return
+            except Exception as e:
+                print(f"❌ Error saving Model Prediction profile: {str(e)}")
+                return None
