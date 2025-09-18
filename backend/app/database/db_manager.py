@@ -119,3 +119,18 @@ class Database_Manager:
             except Exception as e:
                 print(f"❌ Error saving Model Prediction profile: {str(e)}")
                 return None
+    
+    def get_all_report(self,limit: int = 50) -> List[Dict[str,Any]]:
+        """ Get all Reports from DB """
+        if self.is_connected():
+            return []
+        try:
+            query = self.supabase.table('user_reports')\
+            .select('location,text_description,predicted_hazard_type,hazard_confidence')\
+            .eq('is_verified', 'true')
+
+            result = query.order('created_at',desc="true").limit(limit).execute()
+            return result.data or []
+        except Exception as e:
+            print(f"❌ Error retrieving startups: {str(e)}")
+            return []

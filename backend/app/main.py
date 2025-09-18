@@ -9,7 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 
 from pydantic import BaseModel
-from typing import Optional
+from typing import Optional,List,Dict,Any
 
 from database.db_manager import Database_Manager
 from ml.models.hazard_classifier import HazardClassifier, model_prediction
@@ -75,6 +75,24 @@ def save_to_db(data: UserReport):
     
     except Exception as e:
         raise HTTPException(status_code=400,detail=str(e))
+    
+
+app.get("/reports",response_model=List[Dict[str, Any]])
+def get_all_reports(
+        limit: int = 50,
+):
+    """ API to Get all Reports from the DB """
+    if not db_manager:
+        raise HTTPException(status_code=503, detail="Database service unavailable")
+    try:
+
+        response = db_manager.get_all_report(limit)
+        return response
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error fetching startups: {str(e)}")
+
+
+
 
 
     
