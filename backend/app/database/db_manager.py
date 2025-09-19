@@ -80,13 +80,15 @@ class Database_Manager:
             if not report_data.get('report_id'):
                 report_data['report_id'] = self.generate_report_id(report_data['name'])
 
+            location_coords = self._convert_location_to_coordinates(report_data.get('location'))
+
             # Preparing Report Submission Data
             profile_report = {
                 'report_id': report_data['report_id'],
                 'name': report_data.get('name'),
                 'text_description': report_data.get('text_description'),
-                'location': report_data.get('location'),
-                'media_urls': report_data.get('media_urls', []), 
+                'location': location_coords,
+                'media_urls': self._process_media_urls(report_data.get('media_urls')),
             }
 
             result = self.supabase.table("user_reports").insert(profile_report).execute()
@@ -103,7 +105,81 @@ class Database_Manager:
         except Exception as e:
             print(f"❌ Error saving Model Prediction profile: {str(e)}")
             return None
+
+    def _process_media_urls(self, media_urls) -> List[str]:
+        """Process media_urls to ensure proper array format for PostgreSQL"""
         
+        if not media_urls:
+            return []
+        
+        # If it's already a list, return as is
+        if isinstance(media_urls, list):
+            return media_urls
+        
+        # If it's a string
+        if isinstance(media_urls, str):
+            # If it's empty or placeholder text, return empty array
+            if media_urls.strip() in ['', 'string', 'null', 'undefined']:
+                return []
+            
+            # If it contains comma-separated URLs, split them
+            if ',' in media_urls:
+                return [url.strip() for url in media_urls.split(',') if url.strip()]
+            
+            # Single URL string
+            return [media_urls.strip()]
+        
+        # Fallback
+        return []
+
+
+    def _convert_location_to_coordinates(self, location: str) -> str:
+        """Convert location string to proper PostGIS POINT format"""
+        
+        # Dictionary of major Indian cities with coordinates
+        city_coordinates = {
+            'mumbai': (72.8777, 19.0760),
+            'chennai': (80.2707, 13.0827),
+            'kolkata': (88.3639, 22.5726),
+            'delhi': (77.1025, 28.7041),
+            'bangalore': (77.5946, 12.9716),
+            'hyderabad': (78.4867, 17.3850),
+            'pune': (73.8567, 18.5204),
+            'ahmedabad': (72.5714, 23.0225),
+            'kochi': (76.2673, 9.9312),
+            'visakhapatnam': (83.3176, 17.6868),
+            'goa': (74.1240, 15.2993),
+            'puducherry': (79.8083, 11.9416),
+            'trivandrum': (76.9366, 8.5241),
+            'mangalore': (74.8560, 12.9141),
+        }
+        
+        # Clean and normalize location
+        location_clean = location.lower().strip()
+        
+        # Check if it's already in coordinate format (lat, lon)
+        try:
+            # Try to parse if it's already coordinates like "19.0760,72.8777"
+            if ',' in location:
+                parts = location.split(',')
+                if len(parts) == 2:
+                    lat = float(parts[0].strip())
+                    lon = float(parts[1].strip())
+                    return f"POINT({lon} {lat})"
+        except:
+            pass
+        
+        # Look up city coordinates
+        if location_clean in city_coordinates:
+            lon, lat = city_coordinates[location_clean]
+            return f"POINT({lon} {lat})"
+        
+        # Default to Mumbai if location not found
+        print(f"⚠️ Location '{location}' not found, using Mumbai as default")
+        lon, lat = city_coordinates['mumbai']
+        return f"POINT({lon} {lat})"
+
+
 
     def save_model_prediction(self,data:ModelPrediction,report_id:str):
             """ Save the Predicted Hazard Type and Confidence in Database """

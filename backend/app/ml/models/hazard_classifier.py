@@ -127,10 +127,10 @@ class HazardClassifier:
         return{
             "hazard_type":  self.id2label[prediction_class],
             "confidence" : float(confidence),
-            "all_probabilities": {
-                self.id2label[i]: float(prob) for i, prob in enumerate(prediction[0])
+            # "all_probabilities": {
+            #     self.id2label[i]: float(prob) for i, prob in enumerate(prediction[0])
 
-            }
+            # }
         }
     
 
