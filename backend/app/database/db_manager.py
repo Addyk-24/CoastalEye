@@ -71,13 +71,13 @@ class Database_Manager:
             print("❌ Database not connected")
             return None
         # validate the fields
-        req_fields = ['text_description','location','file_name']
+        req_fields = ['text_description','location','name']
         for field in req_fields:
-            if not report_data.get(req_fields):
+            if not report_data.get(field):
                 print(f"❌ Missing required field: {field}")
                 return None
         try:
-            if not report_data.get['report_id']:
+            if not report_data.get('report_id'):
                 report_data['report_id'] = self.generate_report_id(report_data['name'])
 
             # Preparing Report Submission Data
@@ -86,14 +86,16 @@ class Database_Manager:
                 'name': report_data.get('name'),
                 'text_description': report_data.get('text_description'),
                 'location': report_data.get('location'),
-                'file_name': report_data.get('file_name'),
+                'media_urls': report_data.get('media_urls', []), 
             }
+
             result = self.supabase.table("user_reports").insert(profile_report).execute()
 
             if not result.data:
                 print("❌ Failed to insert User Report profile")
                 return None
             report_id = result.data[0]['report_id']
+
             print(f"✅ User Report profile saved with ID: {report_id}")
 
             return report_id
@@ -101,12 +103,14 @@ class Database_Manager:
         except Exception as e:
             print(f"❌ Error saving Model Prediction profile: {str(e)}")
             return None
+        
+
     def save_model_prediction(self,data:ModelPrediction,report_id:str):
             """ Save the Predicted Hazard Type and Confidence in Database """
             try:
                 profile_report = {
-                    'predicted_hazard_type': data.get('predicted_hazard_type'),
-                    'hazard_confidence': data.get('hazard_confidence'),
+                    'predicted_hazard_type': data.get('hazard_type'),
+                    'hazard_confidence': data.get('confidence'),
                 }
 
                 result = self.supabase.table('user_reports').update({"predicted_hazard_type":profile_report["predicted_hazard_type"],"hazard_confidence":profile_report["hazard_confidence"]}).eq("report_id",report_id).execute()
@@ -122,12 +126,15 @@ class Database_Manager:
     
     def get_all_report(self,limit: int = 50) -> List[Dict[str,Any]]:
         """ Get all Reports from DB """
-        if self.is_connected():
+
+        if not self.is_connected():
+            print("❌ Database not connected")
             return []
         try:
             query = self.supabase.table('user_reports')\
             .select('location,text_description,predicted_hazard_type,hazard_confidence')\
-            .eq('is_verified', 'true')
+            .eq('verification_status', 'verified')
+            # .eq('is_verified', 'true')
 
             result = query.order('created_at',desc="true").limit(limit).execute()
             return result.data or []

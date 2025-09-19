@@ -11,8 +11,8 @@ import uvicorn
 from pydantic import BaseModel
 from typing import Optional,List,Dict,Any
 
-from database.db_manager import Database_Manager
-from ml.models.hazard_classifier import HazardClassifier, model_prediction
+from app.database.db_manager import Database_Manager
+from app.ml.models.hazard_classifier import HazardClassifier, model_prediction
 
 db_manager = Database_Manager()
 model = HazardClassifier()
@@ -22,7 +22,7 @@ class UserReport(BaseModel):
     name: str
     location: str
     text_description : str
-    media_urls : str
+    media_urls : str = ""
     hazard_type: Optional[str]
 
 class PredictionResponse(BaseModel):
@@ -57,32 +57,49 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.get("/")
+@app.get("/")
 def root():
     return {"message": "API Initialization"}
 
-app.post("/submit")
+@app.post("/submit")
 def save_to_db(data: UserReport):
     """ Save User Report and Predicted Data From Model in Database """
     if not db_manager:
         raise HTTPException(status_code=503,detail="Database not connected...")
     try:
-        new_entry = db_manager.save_report(data.model_dump())
-        prediction = model_prediction(data["text_description"])
-        new_model_entry = db_manager.save_model_prediction(prediction,new_entry)
+        report_data = data.model_dump()
+        if 'file_name' not in report_data:
+            report_data['file_name'] = f"{data.name}_{data.location}_report.txt"
 
-        return {"status":"success", "id":new_entry,"Prediction":PredictionResponse(Prediction=prediction)}
-    
+        new_entry = db_manager.save_report(report_data)
+
+        if not new_entry:
+            raise HTTPException(status_code=400, detail="Failed to save report")
+        
+        prediction_result = model_prediction(data.text_description)
+
+        if not prediction_result:
+            raise HTTPException(status_code=500, detail="Failed to get model prediction")
+        
+        db_manager.save_model_prediction(prediction_result, new_entry)
+
+
+        return {
+            "status": "success", 
+            "report_id": new_entry,
+            "prediction": prediction_result
+        }    
     except Exception as e:
+        print(f"Error in save_to_db: {str(e)}")
         raise HTTPException(status_code=400,detail=str(e))
     
 
-app.get("/reports",response_model=List[Dict[str, Any]])
+@app.get("/reports",response_model=List[Dict[str, Any]])
 def get_all_reports(
         limit: int = 50,
 ):
     """ API to Get all Reports from the DB """
-    if not db_manager:
+    if not db_manager.is_connected():
         raise HTTPException(status_code=503, detail="Database service unavailable")
     try:
 
@@ -92,9 +109,22 @@ def get_all_reports(
         raise HTTPException(status_code=500, detail=f"Error fetching startups: {str(e)}")
 
 
+if __name__ == "__main__":
+    uvicorn.run(
+        "main:app", 
+        host="0.0.0.0", 
+        port=8000, 
+        reload=True,
+        log_level="info"
+    )
 
+    # run : uv run fastapi dev
 
-
-    
-
-    
+    # Example 
+# {
+#   "name": "Tapu",
+#   "location": "Mumbai",
+#   "text_description": "High waves and Long narrow wave incoming with aggressive waves hitting on the shore",
+#   "media_urls": "",
+#   "hazard_type": "Heatwave"
+# }

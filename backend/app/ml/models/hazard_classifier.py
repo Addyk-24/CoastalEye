@@ -7,31 +7,36 @@ from torch.utils.data import Dataset
 from typing import Dict , Optional
 
 
-
+import os
 import numpy as np
 import pandas as pd
 from sklearn.model_selection import train_test_split
 
 
 import re
-import nltk
-nltk.download('stopwords')
-from nltk.corpus import stopwords
-from nltk.stem.porter import PorterStemmer
+# import nltk
+# nltk.download('stopwords')
+# from nltk.corpus import stopwords
+# from nltk.stem.porter import PorterStemmer
 
 
-# df = pd.read_csv("../datasets/synthetic_hazard_dataset_1200.csv")
-# ...existing code...
-df = pd.read_csv("../datasets/synthetic_hazard_dataset_1200.csv")
 # print(df.head())
 # model_name = "bert-base-multilingual-cased"
 
+# df = pd.read_csv("../datasets/synthetic_hazard_dataset_1200.csv")
 
 # # Option 2: IndicBERT (better for Indian languages)
 # model_name = "ai4bharat/indic-bert"
 
 # # Option 3: XLM-RoBERTa (excellent multilingual performance)
 # model_name = "xlm-roberta-base"
+
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))  # goes from models/ → app/
+DATA_PATH = os.path.join(BASE_DIR, "datasets", "synthetic_hazard_dataset_1200.csv")
+
+print("Loading:", DATA_PATH)
+
+df = pd.read_csv(DATA_PATH)
 
 model_path = "FacebookAI/xlm-roberta-base"
 fine_tuned_model_path = "Addyk24/Hazard_Classifier"
@@ -276,15 +281,26 @@ def model_prediction(data,model_dir="../trained_models/hazard_model"):
     
     print("🔄 Loading trained model...")
     classifier = HazardClassifier()
-    classifier.load_model(model_dir)
 
     # Try loading tokenizer from fine-tuned folder, fallback to base model
+    try:
+        classifier.load_model(fine_tuned_model_path)
+        print("✅ Loaded model from Hugging Face")     
+    except Exception:
+        try:
+            classifier.load_model(model_dir)
+        except Exception as e2:
+            print(f"❌ Could not load any model: {e2}")
+            return None
+
     try:
         classifier.tokenizer = AutoTokenizer.from_pretrained(model_dir)
     except Exception:
         print("⚠️ Tokenizer not found in fine-tuned folder. Using base model tokenizer.")
-        classifier.tokenizer = AutoTokenizer.from_pretrained("xlm-roberta-base")
-    
+        try:
+            classifier.tokenizer = AutoTokenizer.from_pretrained(fine_tuned_model_path)
+        except Exception:
+            classifier.tokenizer = AutoTokenizer.from_pretrained("FacebookAI/xlm-roberta-base")
     
     print("\n🧪 Testing predictions:")
     print("=" * 80)
@@ -292,7 +308,12 @@ def model_prediction(data,model_dir="../trained_models/hazard_model"):
     try:
         result = classifier.predict(data)
         print(f"   Predicted: {result['hazard_type']} (confidence: {result['confidence']:.3f})")
-        return {f"   Predicted: {result['hazard_type']} (confidence: {result['confidence']:.3f})"}
+        return {
+            "hazard_type": result['hazard_type'],
+            "confidence": result['confidence'],
+            "all_probabilities": result['all_probabilities']
+        }
+        # return {f"   Predicted: {result['hazard_type']} (confidence: {result['confidence']:.3f})"}
     except Exception as e:
         print(f"❌ Error predicting for text: {data}")
 

@@ -5,8 +5,11 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
+    "fastapi[standard]>=0.116.2",
     "huggingface-hub>=0.34.4",
     "pandas>=2.3.2",
     "scikit-learn>=1.7.2",
+    "supabase>=2.19.0",
+    "torch>=2.8.0",
     "transformers>=4.56.1",
 ]
