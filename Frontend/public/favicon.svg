@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32">
+  <rect width="32" height="32" fill="#2a2a2a" rx="4"/>
+  
+  <!-- CE Letters -->
+  <g transform="translate(8, 6)">
+    <!-- Letter C -->
+    <path d="M4 8c0-2.2 1.8-4 4-4s4 1.8 4 4v2c0 2.2-1.8 4-4 4s-4-1.8-4-4V8z" fill="#d1d5db" stroke="#d1d5db" stroke-width="1.5" fill-rule="evenodd"/>
+    <path d="M6 8c0-1.1.9-2 2-2s2 .9 2 2v2c0 1.1-.9 2-2 2s-2-.9-2-2V8z" fill="#2a2a2a"/>
+    
+    <!-- Letter e -->
+    <g transform="translate(10, 0)">
+      <path d="M2 6c0-1.1.9-2 2-2h4c1.1 0 2 .9 2 2v4c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6z" fill="#d1d5db" stroke="#d1d5db" stroke-width="1.5" fill-rule="evenodd"/>
+      <path d="M4 6h4v2H4V6z" fill="#2a2a2a"/>
+    </g>
+  </g>
+  
+  <!-- Water droplet -->
+  <g transform="translate(12, 10)">
+    <ellipse cx="2" cy="3" rx="1.5" ry="2" fill="#60a5fa"/>
+    <circle cx="1.5" cy="2.5" r="0.3" fill="white"/>
+    <circle cx="2.5" cy="2.5" r="0.3" fill="white"/>
+    <path d="M1.2 3.8c0.2 0.1 0.4 0.1 0.6 0.1s0.4 0 0.6-0.1" stroke="white" stroke-width="0.3" fill="none"/>
+  </g>
+</svg>
