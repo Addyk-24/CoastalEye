@@ -108,6 +108,20 @@ def get_all_reports(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error fetching startups: {str(e)}")
 
+@app.get("/report/{report_id}")
+def get_specific_report(report_id : str):
+    """ API for getting specific report """
+    if not db_manager.is_connected():
+        raise HTTPException(status_code=503, detail="Database service unavailable")
+    try:
+        specific_report = db_manager.get_report_by_name_or_id(report_id)
+
+        if not specific_report:
+            raise HTTPException(status_code=404, detail="Report not found")
+        
+        return {f"Specific Report with {report_id} " : specific_report}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error fetching startup: {str(e)}")
 
 if __name__ == "__main__":
     uvicorn.run(
@@ -118,9 +132,10 @@ if __name__ == "__main__":
         log_level="info"
     )
 
-    # run : uv run fastapi dev
+# run : uv run fastapi dev
 
-    # Example 
+# Example 
+
 # {
 #   "name": "Tapu",
 #   "location": "Mumbai",

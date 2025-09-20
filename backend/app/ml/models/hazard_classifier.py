@@ -310,8 +310,8 @@ def model_prediction(data,model_dir="../trained_models/hazard_model"):
         print(f"   Predicted: {result['hazard_type']} (confidence: {result['confidence']:.3f})")
         return {
             "hazard_type": result['hazard_type'],
-            "confidence": result['confidence'],
-            "all_probabilities": result['all_probabilities']
+            "confidence": f"{result['confidence']:.3f}",
+            # "all_probabilities": result['all_probabilities']
         }
         # return {f"   Predicted: {result['hazard_type']} (confidence: {result['confidence']:.3f})"}
     except Exception as e:

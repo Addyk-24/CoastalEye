@@ -64,6 +64,39 @@ class Database_Manager:
         unique_suffix = str(uuid.uuid4())[:8].upper()
         return f"REPORT_{base_id}_{unique_suffix}"
 
+    def get_report_profile(self, report_id: str):
+        """Get Report data by report_id """
+        try:
+            response = self.supabase.table('user_reports').select('text_description,location,predicted_hazard_type,hazard_confidence,verification_status,created_at,updated_at').eq('report_id', report_id).execute()
+            
+            if response.data and len(response.data) > 0:
+                return response.data[0]
+            else:
+                return None
+                
+        except Exception as e:
+            print(f"Error getting Report by ID: {e}")
+            return None
+        
+    def get_report_by_name(self, name: str):
+
+        """ Get Report data by user name (case-insensitive search) """
+        try:
+            # Using ilike for case-insensitive search
+            response = self.supabase.table('user_reports').select('text_description,location,predicted_hazard_type,hazard_confidence,verification_status,created_at,updated_at').ilike('name', f'%{name}%').execute()
+            
+            if response.data and len(response.data) > 0:
+                # If multiple matches, return the first one
+                # You might want to add logic to handle multiple matches differently
+                return response.data[0]
+            else:
+                return None
+                
+        except Exception as e:
+            print(f"Error searching by Report name: {e}")
+            return None
+
+
     def save_report(self, report_data: Dict[str,Any]) -> Optional[str]:
         """ Save Verified Report in the database """
 
@@ -89,6 +122,7 @@ class Database_Manager:
                 'text_description': report_data.get('text_description'),
                 'location': location_coords,
                 'media_urls': self._process_media_urls(report_data.get('media_urls')),
+                'verification_status': 'pending',
             }
 
             result = self.supabase.table("user_reports").insert(profile_report).execute()
@@ -208,8 +242,8 @@ class Database_Manager:
             return []
         try:
             query = self.supabase.table('user_reports')\
-            .select('location,text_description,predicted_hazard_type,hazard_confidence')\
-            .eq('verification_status', 'verified')
+            .select('text_description,location,predicted_hazard_type,hazard_confidence,verification_status,created_at,updated_at')
+            # .eq('verification_status', 'verified')
             # .eq('is_verified', 'true')
 
             result = query.order('created_at',desc="true").limit(limit).execute()
@@ -217,3 +251,39 @@ class Database_Manager:
         except Exception as e:
             print(f"❌ Error retrieving startups: {str(e)}")
             return []
+        
+    def get_report_by_name_or_id(self, identifier : str):
+        """ Get Specific Report either by name or report id """
+        try:
+            print(f"Searching for startup with identifier: {identifier}")
+
+            report_data = self.get_report_profile(identifier)
+            if report_data:
+                    print(f"Found Report by ID: {report_data.get('company_name')}")
+                    return report_data
+            report_data = self.get_report_by_name(identifier)
+
+            if report_data:
+                print(f"Found startup by name: {report_data.get('company_name')}")
+                return report_data
+            
+            print(f"No Report found with identifier: {identifier}")
+            return None
+                
+        except Exception as e:
+            print(f"Error in get_startup_by_name_or_id: {e}")
+            return None
+        
+    def search_report_by_name(self, name: str, limit: int = 5):
+        """Search for multiple Reports by user name (returns list of matches)"""
+        try:
+            response = self.supabase.table('user_reports').select('*').ilike('name', f'%{name}%').limit(limit).execute()
+            
+            return response.data if response.data else []
+                
+        except Exception as e:
+            print(f"Error searching startups by name: {e}")
+            return []
+
+
+
