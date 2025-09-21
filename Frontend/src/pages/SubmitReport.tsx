@@ -25,20 +25,95 @@ const SubmitReport = () => {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (!formData.name || !formData.email || !formData.location || !formData.description || !formData.urgency) {
+const handleSubmit = async (e: React.FormEvent) => {
+  e.preventDefault();
+  
+  try {
+    // Fix 1: Correct validation logic
+    const requiredFields = ['name', 'email', 'location', 'description'];
+    const missingFields = requiredFields.filter(field => 
+      !formData[field] || formData[field].trim() === ''
+    );
+
+    if (missingFields.length > 0) {
       toast.error('Please fill in all required fields');
       return;
     }
 
-    // Store form data in session storage for the results page
-    sessionStorage.setItem('reportData', JSON.stringify(formData));
+    // Fix 2: Add media_urls field to match your API
+    const transformedData = {
+      name: formData.name,
+      location: formData.location,
+      text_description: formData.description,
+      media_urls: "" // Your API expects this field
+    };
+
+    const apiUrl = 'http://localhost:8000';
+    const response = await fetch(`${apiUrl}/submit`, {
+      method: 'POST',
+      headers: { 
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      },
+      body: JSON.stringify(transformedData)
+    });
+
+    console.log('Response status:', response.status);
+
+    // Fix 3: Handle response properly
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('Server response error:', errorText);
+
+      try {
+        const errorData = JSON.parse(errorText);
+        if (errorData.detail && Array.isArray(errorData.detail)) {
+          const errorMessages = errorData.detail.map(err => `${err.loc.join('.')}: ${err.msg}`);
+          toast.error('Please fix the following errors:\n' + errorMessages.join('\n'));
+        } else {
+          toast.error(errorData.detail || errorData.error || 'Server error occurred');
+        }
+      } catch (parseError) {
+        toast.error(`Server error (${response.status}): ${errorText}`);
+      }
+      return;
+    }
+
+    // Fix 4: Get result after response check
+    const result = await response.json();
+    console.log('Full API Response:', JSON.stringify(result, null, 2)); // Debug log
+    console.log('Prediction object:', result.prediction); // Debug log
+    console.log('Success response:', result);
+
+    // Fix 5: Store data and navigate properly
+    if (result.status === 'success') {
+      const reportDataWithPrediction = {
+        ...formData,
+        apiResponse: result
+      };
+      console.log('Storing data:', JSON.stringify(reportDataWithPrediction, null, 2));
+
+      // Store form data in session storage for the results page
+      sessionStorage.setItem('reportData', JSON.stringify(reportDataWithPrediction));
+      
+      toast.success('Report submitted successfully!');
+      alert('Report submitted successfully!');
+      navigate('/report-results');
+
+    } else {
+      toast.error(result.error || 'Failed to submit report');
+    }
+
+  } catch (error) {
+    console.error('Submission error:', error);
     
-    toast.success('Report submitted successfully!');
-    navigate('/report-results');
-  };
+    if (error.name === 'TypeError' && error.message.includes('fetch')) {
+      toast.error('Network error: Please check your connection');
+    } else {
+      toast.error('An unexpected error occurred: ' + error.message);
+    }
+  }
+};
 
   return (
     <div className="min-h-screen bg-gradient-smoke">

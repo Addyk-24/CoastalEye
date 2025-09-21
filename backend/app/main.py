@@ -23,7 +23,6 @@ class UserReport(BaseModel):
     location: str
     text_description : str
     media_urls : str = ""
-    hazard_type: Optional[str]
 
 class PredictionResponse(BaseModel):
     Prediction: str
@@ -122,6 +121,64 @@ def get_specific_report(report_id : str):
         return {f"Specific Report with {report_id} " : specific_report}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error fetching startup: {str(e)}")
+
+@app.get("/predict/{location}")
+def get_location_prediction(location: str):
+    """Get hazard prediction for a specific location"""
+    if not db_manager.is_connected():
+        raise HTTPException(status_code=503, detail="Database service unavailable")
+    
+    try:
+        # Search by location_name instead of coordinates
+        reports = db_manager.supabase.table('user_reports')\
+            .select('predicted_hazard_type,hazard_confidence,verification_status,created_at,name,location_name')\
+            .ilike('location_name', f'%{location}%')\
+            .order('created_at', desc=True)\
+            .limit(10)\
+            .execute()
+        
+        # Return None if no reports found
+        if not reports.data:
+            return {
+                "location": location,
+                "has_data": False,
+                "message": f"No reports found for {location} in database"
+            }
+        
+        # Get the most recent verified report, or most recent unverified if no verified exists
+        verified_reports = [r for r in reports.data if r.get('verification_status') == 'verified' and r.get('predicted_hazard_type')]
+        all_reports_with_prediction = [r for r in reports.data if r.get('predicted_hazard_type') and r.get('hazard_confidence')]
+        
+        # Use verified report first, otherwise most recent with prediction
+        target_report = None
+        if verified_reports:
+            target_report = verified_reports[0]
+        elif all_reports_with_prediction:
+            target_report = all_reports_with_prediction[0]
+        
+        if not target_report:
+            return {
+                "location": location,
+                "has_data": False,
+                "message": f"No ML predictions available for {location}"
+            }
+        
+        # Return actual database prediction
+        return {
+            "location": location,
+            "has_data": True,
+            "predicted_hazard_type": target_report['predicted_hazard_type'],
+            "hazard_confidence": float(target_report['hazard_confidence']),
+            "verification_status": target_report['verification_status'],
+            "report_date": target_report['created_at'],
+            "total_reports": len(reports.data),
+            "verified_reports": len(verified_reports)
+        }
+        
+    except Exception as e:
+        print(f"Error in get_location_prediction: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
+
 
 if __name__ == "__main__":
     uvicorn.run(
