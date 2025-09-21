@@ -67,7 +67,7 @@ class Database_Manager:
     def get_report_profile(self, report_id: str):
         """Get Report data by report_id """
         try:
-            response = self.supabase.table('user_reports').select('text_description,location,predicted_hazard_type,hazard_confidence,verification_status,created_at,updated_at').eq('report_id', report_id).execute()
+            response = self.supabase.table('user_reports').select('name,text_description,location,predicted_hazard_type,hazard_confidence,verification_status,created_at,updated_at').eq('report_id', report_id).execute()
             
             if response.data and len(response.data) > 0:
                 return response.data[0]
@@ -83,7 +83,7 @@ class Database_Manager:
         """ Get Report data by user name (case-insensitive search) """
         try:
             # Using ilike for case-insensitive search
-            response = self.supabase.table('user_reports').select('text_description,location,predicted_hazard_type,hazard_confidence,verification_status,created_at,updated_at').ilike('name', f'%{name}%').execute()
+            response = self.supabase.table('user_reports').select('name,text_description,location,predicted_hazard_type,hazard_confidence,verification_status,created_at,updated_at').ilike('name', f'%{name}%').execute()
             
             if response.data and len(response.data) > 0:
                 # If multiple matches, return the first one
@@ -121,6 +121,7 @@ class Database_Manager:
                 'name': report_data.get('name'),
                 'text_description': report_data.get('text_description'),
                 'location': location_coords,
+                'location_name': report_data.get('location'),
                 'media_urls': self._process_media_urls(report_data.get('media_urls')),
                 'verification_status': 'pending',
             }
@@ -259,12 +260,12 @@ class Database_Manager:
 
             report_data = self.get_report_profile(identifier)
             if report_data:
-                    print(f"Found Report by ID: {report_data.get('company_name')}")
+                    print(f"Found Report by ID: {report_data.get('name')}")
                     return report_data
             report_data = self.get_report_by_name(identifier)
 
             if report_data:
-                print(f"Found startup by name: {report_data.get('company_name')}")
+                print(f"Found startup by name: {report_data.get('name')}")
                 return report_data
             
             print(f"No Report found with identifier: {identifier}")

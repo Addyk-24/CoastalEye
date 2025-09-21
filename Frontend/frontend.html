@@ -1,0 +1,99 @@
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+    const requiredFields = {
+    name: 'Full name',
+    email: 'EmailId',
+    location: 'Location',
+    description: 'Text Description',
+    }
+
+    const missingFields = [];
+    for (const [field, label] of Object.entries(requiredFields)) {
+      if (!formData[field] || formData[field].trim() === '') {
+        missingFields.push(label);
+      }
+    }
+  
+    // if (missingFields.length > 0) {
+    //   alert('Please fill in the following required fields:\n\n' + missingFields.join('\n'));
+    //   return;
+    // }
+    if (!requiredFields.name || !requiredFields.email || !requiredFields.location || !requiredFields.description) {
+      toast.error('Please fill in all required fields');
+      return;
+    }
+
+    const transformedData = {
+      name : formData.name,
+      email : formData.email,
+      text_description : formData.description,
+      location : formData.location
+    }
+
+    const apiUrl = 'http://localhost:8000'
+    const response = await fetch(`${apiUrl}/submit`, {
+      method: 'POST',
+      headers: { 
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      },
+      body: JSON.stringify(transformedData)
+    });
+
+    console.log('Response status:', response.status);
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('Server response error:', errorText);
+
+    const result = await response.json();
+
+    const reportDataWithPrediction = {
+      ...formData,
+      apiResponse: result
+    };
+
+    try {
+        const errorData = JSON.parse(errorText);
+        if (errorData.detail && Array.isArray(errorData.detail)) {
+          // Handle Pydantic validation errors
+          const errorMessages = errorData.detail.map(err => `${err.loc.join('.')}: ${err.msg}`);
+          alert('Please fix the following errors:\n\n' + errorMessages.join('\n'));
+        } else {
+          alert(errorData.detail || errorData.error || 'Server error occurred. Please try again.');
+        }
+      } catch (parseError) {
+        alert(`Server error (${response.status}): ${errorText}`);
+      }
+      return;
+    }
+
+    const result = await response.json();
+    console.log('Success response:', result);
+
+    if (result.status === 'success') {
+      alert('Application submitted successfully!');
+      // Redirect or handle success
+      window.location.href = '/report-results';
+    } else {
+      alert(result.error || 'Failed to submit application. Please try again.');
+    }
+
+  } catch (error) {
+    console.error('Submission error:', error);
+    
+    if (error.name === 'TypeError' && error.message.includes('fetch')) {
+      alert('Network error: Please check your internet connection and try again.');
+    } else {
+      alert('An unexpected error occurred. Please try again.\n\nError: ' + error.message);
+    }
+  }
+
+
+    // Store form data in session storage for the results page
+    sessionStorage.setItem('reportData', JSON.stringify(reportDataWithPrediction));
+    
+    toast.success('Report submitted successfully!');
+    navigate('/report-results');
+  };

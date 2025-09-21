@@ -9,11 +9,20 @@ import MapComponent from "@/components/MapComponent";
 
 interface ReportData {
   name: string;
-  email: string;
+  email?: string;
   location: string;
   description: string;
-  reason: string;
-  urgency: string;
+  reason?: string;
+  urgency?: string;
+  apiResponse?: {
+    status: string;
+    report_id: string;
+    prediction: {
+      hazard_type: string;
+      confidence: number;
+      all_probabilities: Record<string, number>;
+    };
+  };
 }
 
 const ReportResults = () => {
@@ -25,7 +34,6 @@ const ReportResults = () => {
     if (storedData) {
       setReportData(JSON.parse(storedData));
     } else {
-      // Redirect back if no report data
       navigate('/submit-report');
     }
   }, [navigate]);
@@ -43,35 +51,132 @@ const ReportResults = () => {
     }
   };
 
-  const getModelPrediction = () => {
-    if (!reportData) return null;
-    
-    // Simulate AI model validation
-    const predictions = [
-      { 
-        isValid: true, 
-        confidence: '94%', 
-        reasoning: 'Report details match known hazard patterns for this coastal region. Weather data confirms potential threat.',
-        recommendation: 'Report has been flagged for immediate review by coastal authorities.'
-      },
-      { 
-        isValid: true, 
-        confidence: '78%', 
-        reasoning: 'Partial match with historical data. Some indicators suggest credible threat.',
-        recommendation: 'Report requires additional verification before action.'
-      },
-      { 
-        isValid: false, 
-        confidence: '65%', 
-        reasoning: 'Report details do not align with current environmental conditions.',
-        recommendation: 'Report marked for further investigation and cross-verification.'
-      }
-    ];
-    
-    return predictions[Math.floor(Math.random() * predictions.length)];
+  const getHazardTypeDisplayName = (hazardType: string) => {
+    const displayNames: Record<string, string> = {
+      'tsunami': 'Tsunami',
+      'storm_surge': 'Storm Surge',
+      'high_waves': 'High Waves',
+      'coastal_flooding': 'Coastal Flooding',
+      'swell_surge': 'Swell Surge',
+      'rip_current': 'Rip Current',
+      'no_hazard': 'No Hazard',
+      'other': 'Other Hazard',
+      'flood': 'Flood',
+      'abnormal_tide': 'Abnormal Tide'
+    };
+    return displayNames[hazardType] || hazardType;
   };
 
-  const prediction = reportData ? getModelPrediction() : null;
+  const getHazardSeverityColor = (hazardType: string, confidence: number) => {
+    const criticalHazards = ['tsunami', 'storm_surge', 'coastal_flooding'];
+    const mediumHazards = ['high_waves', 'swell_surge', 'flood'];
+    
+    if (confidence < 0.5) return 'text-gray-600';
+    
+    if (criticalHazards.includes(hazardType)) {
+      return 'text-red-600';
+    } else if (mediumHazards.includes(hazardType)) {
+      return 'text-yellow-600';
+    } else if (hazardType === 'no_hazard') {
+      return 'text-green-600';
+    } else {
+      return 'text-blue-600';
+    }
+  };
+
+  const getValidationStatus = (hazardType: string, confidence: number) => {
+    if (hazardType === 'no_hazard') {
+      return {
+        isValid: false,
+        title: 'No Hazard Detected',
+        message: 'AI analysis indicates no immediate coastal hazard'
+      };
+    }
+    
+    if (confidence >= 0.8) {
+      return {
+        isValid: true,
+        title: 'High Confidence Detection',
+        message: 'AI analysis confirms potential hazard with high confidence'
+      };
+    } else if (confidence >= 0.6) {
+      return {
+        isValid: true,
+        title: 'Moderate Confidence Detection',
+        message: 'AI analysis suggests potential hazard, requires verification'
+      };
+    } else {
+      return {
+        isValid: false,
+        title: 'Low Confidence Detection',
+        message: 'AI analysis uncertain, manual review recommended'
+      };
+    }
+  };
+
+const getRealPredictionData = () => {
+  if (!reportData?.apiResponse?.prediction) {
+    return {
+      isValid: false,
+      confidence: 'No prediction available',
+      reasoning: 'Unable to get AI prediction from the system.',
+      recommendation: 'Report will be manually reviewed by authorities.',
+      hazardType: null,
+      alternativePredictions: []
+    };
+  }
+
+  const prediction = reportData.apiResponse.prediction;
+
+  // Safely coerce confidence (handles both string and number)
+  const confidence = parseFloat(String(prediction.confidence));
+
+  if (!prediction.hazard_type || isNaN(confidence)) {
+    return {
+      isValid: false,
+      confidence: 'Invalid prediction data',
+      reasoning: 'Prediction data is incomplete or corrupted.',
+      recommendation: 'Report will be manually reviewed by authorities.',
+      hazardType: null,
+      alternativePredictions: []
+    };
+  }
+
+  const validation = getValidationStatus(prediction.hazard_type, confidence);
+
+  // Handle optional all_probabilities
+  let sortedProbs: [string, number][] = [];
+  if (prediction.all_probabilities && typeof prediction.all_probabilities === 'object') {
+    try {
+      sortedProbs = Object.entries(prediction.all_probabilities)
+        .map(([key, value]) => [key, parseFloat(String(value))] as [string, number])
+        .filter(([_, value]) => !isNaN(value))
+        .sort(([, a], [, b]) => b - a)
+        .slice(0, 3);
+    } catch (error) {
+      console.error('Error processing probabilities:', error);
+      sortedProbs = [];
+    }
+  }
+
+  return {
+    isValid: validation.isValid,
+    confidence: `${(confidence * 100).toFixed(1)}%`,
+    hazardType: prediction.hazard_type,
+    hazardDisplayName: getHazardTypeDisplayName(prediction.hazard_type),
+    validationTitle: validation.title,
+    validationMessage: validation.message,
+    reasoning: `AI model classified this report as "${getHazardTypeDisplayName(prediction.hazard_type)}" with ${(confidence * 100).toFixed(1)}% confidence.`,
+    recommendation: validation.isValid
+      ? 'Report flagged for immediate review by coastal monitoring authorities.'
+      : 'Report requires additional verification and manual assessment.',
+    alternativePredictions: sortedProbs,
+    reportId: reportData.apiResponse.report_id || 'Unknown'
+  };
+};
+
+
+  const prediction = reportData ? getRealPredictionData() : null;
 
   if (!reportData) {
     return (
@@ -96,6 +201,11 @@ const ReportResults = () => {
               <p className="text-xl text-muted-foreground">
                 Thank you for helping keep communities safe
               </p>
+              {reportData.apiResponse?.report_id && (
+                <p className="text-sm text-muted-foreground mt-2">
+                  Report ID: {reportData.apiResponse.report_id}
+                </p>
+              )}
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
@@ -131,10 +241,12 @@ const ReportResults = () => {
                       </div>
                     </div>
                     
-                    <div>
-                      <p className="text-sm font-medium text-muted-foreground mb-2">Urgency Level</p>
-                      {getUrgencyBadge(reportData.urgency)}
-                    </div>
+                    {reportData.urgency && (
+                      <div>
+                        <p className="text-sm font-medium text-muted-foreground mb-2">Urgency Level</p>
+                        {getUrgencyBadge(reportData.urgency)}
+                      </div>
+                    )}
                     
                     <div>
                       <p className="text-sm font-medium text-muted-foreground mb-2">Description</p>
@@ -142,32 +254,31 @@ const ReportResults = () => {
                         {reportData.description}
                       </p>
                     </div>
-                    
-                    {reportData.reason && (
-                      <div>
-                        <p className="text-sm font-medium text-muted-foreground mb-2">Reason</p>
-                        <p className="text-sm leading-relaxed bg-muted/50 p-3 rounded">
-                          {reportData.reason}
-                        </p>
-                      </div>
-                    )}
                   </CardContent>
                 </Card>
 
-                {/* AI Model Prediction */}
+                {/* AI Model Prediction - Now using real data */}
                 <Card className="shadow-elegant border-0 bg-card/80 backdrop-blur-sm">
                   <CardHeader>
                     <CardTitle>AI Validation Results</CardTitle>
                     <p className="text-sm text-muted-foreground">
-                      Automated analysis of report credibility
+                      Machine learning analysis of hazard classification
                     </p>
                   </CardHeader>
                   <CardContent className="space-y-4">
                     {prediction && (
                       <>
                         <div className="text-center p-4 bg-muted/50 rounded-lg">
+                          {prediction.hazardType && (
+                            <div className="mb-3">
+                              <h4 className="text-sm font-medium text-muted-foreground">Detected Hazard Type</h4>
+                              <p className={`text-lg font-bold ${getHazardSeverityColor(prediction.hazardType, parseFloat(prediction.confidence) / 100)}`}>
+                                {prediction.hazardDisplayName}
+                              </p>
+                            </div>
+                          )}
                           <h3 className={`text-xl font-bold ${prediction.isValid ? 'text-green-600' : 'text-yellow-600'}`}>
-                            {prediction.isValid ? 'Report Validated' : 'Requires Verification'}
+                            {prediction.validationTitle}
                           </h3>
                           <p className="text-muted-foreground mt-1">
                             Confidence: {prediction.confidence}
@@ -176,11 +287,27 @@ const ReportResults = () => {
                         
                         <div className="space-y-3">
                           <div>
-                            <h4 className="font-medium mb-2">Analysis</h4>
+                            <h4 className="font-medium mb-2">AI Analysis</h4>
                             <p className="text-sm text-muted-foreground leading-relaxed">
                               {prediction.reasoning}
                             </p>
                           </div>
+                          
+                          {prediction.alternativePredictions && prediction.alternativePredictions.length > 1 && (
+                            <div>
+                              <h4 className="font-medium mb-2">Alternative Classifications</h4>
+                              <div className="space-y-1">
+                                {prediction.alternativePredictions.slice(0, 3).map(([hazard, prob], index) => (
+                                  <div key={`${hazard}-${index}`} className="flex justify-between text-sm">
+                                    <span>{getHazardTypeDisplayName(hazard || 'unknown')}</span>
+                                    <span className="text-muted-foreground">
+                                      {typeof prob === 'number' ? (prob * 100).toFixed(1) : '0.0'}%
+                                    </span>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
                           
                           <div>
                             <h4 className="font-medium mb-2">Next Steps</h4>
@@ -188,6 +315,14 @@ const ReportResults = () => {
                               {prediction.recommendation}
                             </p>
                           </div>
+
+                          {reportData.apiResponse?.status === 'success' && (
+                            <div className="bg-green-50 border-l-4 border-green-400 p-3 rounded">
+                              <p className="text-sm text-green-700">
+                                Report successfully processed and saved to database.
+                              </p>
+                            </div>
+                          )}
                         </div>
                       </>
                     )}
