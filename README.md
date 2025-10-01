@@ -1,2 +1,39 @@
-# CoastalEye
+
+
+# <img width="50" height="50" alt="image" src="https://github.com/user-attachments/assets/01857b9c-ddaf-48ef-995f-f1f76262d060" /> CoastalEye
 Integrated Platform for Crowdsourced Ocean Hazard Reporting and Social Media Analytics
+
+## Problem Statement
+India’s vast coastline faces frequent threats from ocean hazards like tsunamis, storm surges, and abnormal tides. While agencies like INCOIS provide early warnings using satellite and sensor data, real-time ground-level insights from citizens are often missing or delayed. 
+- No ground-level validation
+- Poor post-landfall accuracy
+- No real time and ground-level Insights
+
+## Innovating Solution
+
+<img width="1000" height="900" alt="image" src="https://github.com/user-attachments/assets/9d482197-f013-4faa-abe9-477914ef2009" />
+
+
+## UNIQUENESS OF SOLTUION
+
+<img width="1225" height="900" alt="image" src="https://github.com/user-attachments/assets/e5424951-0d7f-41b3-a3b8-655d802a8d0a" />
+
+## FEASIBILITY
+Will People Accept this?
+- Citizens, volunteers & officials can adopt with proper outreach.
+- Analyst/moderator workflow ensures trust & accuracy.
+- Offline sync supports remote coastal regions.
+
+<img width="1850" height="1123" alt="image" src="https://github.com/user-attachments/assets/29d2df0d-d1fa-4f53-a86a-d1801211ba05" />
+
+## IMPACT
+
+<img width="1000" height="900" alt="image" src="https://github.com/user-attachments/assets/a11b0b86-762b-43d2-9b70-b3f1780eb46e" />
+
+## Team Mmebers
+Aditya Katkar (Team Lead)
+Veerdhawal
+Om Karkele
+
+
+
